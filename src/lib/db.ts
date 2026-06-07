@@ -1,77 +1,115 @@
-import sqlite3 from 'sqlite3';
-import { open, Database } from 'sqlite';
-import path from 'path';
+// In-memory mock database for Vercel Serverless environment
+// Replaces sqlite3 to fix native compilation issues during deployment
 
-let db: Database | null = null;
+export interface Question {
+  id: string;
+  subject: string;
+  topic: string;
+  difficulty: string;
+  questionText: string;
+  options: string;
+  correctAnswer: string;
+}
 
-export async function getDb() {
-  if (db) return db;
+export interface Paper {
+  packageId: string;
+  versionId: string;
+  examName: string;
+  status: string;
+  createdAt: string;
+  aesKey: string;
+  iv: string;
+  encryptedPayload: string;
+}
 
-  const dbPath = path.resolve(process.cwd(), 'database.sqlite');
-  
-  db = await open({
-    filename: dbPath,
-    driver: sqlite3.Database
-  });
+export interface AuditLog {
+  id: number;
+  timestamp: string;
+  event: string;
+  details: string;
+}
 
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS questions (
-      id TEXT PRIMARY KEY,
-      subject TEXT,
-      topic TEXT,
-      difficulty TEXT,
-      questionText TEXT,
-      options TEXT,
-      correctAnswer TEXT
-    );
+let questions: Question[] = [];
+let papers: Paper[] = [];
+let auditLogs: AuditLog[] = [];
+let isSeeded = false;
 
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      timestamp TEXT,
-      event TEXT,
-      details TEXT
-    );
+function seedDb() {
+  if (isSeeded) return;
+
+  const subjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
+  const topics = ['Kinematics', 'Organic Chemistry', 'Calculus', 'Genetics'];
+  const difficulties = ['Easy', 'Medium', 'Hard'];
+
+  for (let i = 1; i <= 50; i++) {
+    const subject = subjects[i % 4];
+    const topic = topics[i % 4];
+    const diff = difficulties[i % 3];
     
-    CREATE TABLE IF NOT EXISTS papers (
-      packageId TEXT PRIMARY KEY,
-      versionId TEXT,
-      examName TEXT,
-      status TEXT,
-      createdAt TEXT,
-      aesKey TEXT,
-      iv TEXT,
-      encryptedPayload TEXT
-    );
-  `);
+    questions.push({
+      id: `Q${1000 + i}`,
+      subject,
+      topic,
+      difficulty: diff,
+      questionText: `Sample question ${i} for ${subject} on ${topic}?`,
+      options: JSON.stringify(['Option A', 'Option B', 'Option C', 'Option D']),
+      correctAnswer: 'Option A'
+    });
+  }
+  
+  isSeeded = true;
+}
 
-  // Seed questions if empty
-  const count = await db.get('SELECT COUNT(*) as count FROM questions');
-  if (count.count === 0) {
-    const subjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
-    const topics = ['Kinematics', 'Organic Chemistry', 'Calculus', 'Genetics'];
-    const difficulties = ['Easy', 'Medium', 'Hard'];
-
-    const insertStmt = await db.prepare(
-      'INSERT INTO questions (id, subject, topic, difficulty, questionText, options, correctAnswer) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    );
-
-    for (let i = 1; i <= 50; i++) {
-      const subject = subjects[i % 4];
-      const topic = topics[i % 4];
-      const diff = difficulties[i % 3];
+class MockDB {
+  async all(query: string, params: any[] = []): Promise<any[]> {
+    if (query.includes('FROM questions')) {
+      // Simulate ORDER BY RANDOM() LIMIT ?
+      const limitMatch = query.match(/LIMIT\s+\?/i);
+      const limit = limitMatch && params[0] ? params[0] : questions.length;
       
-      await insertStmt.run(
-        `Q${1000 + i}`,
-        subject,
-        topic,
-        diff,
-        `Sample question ${i} for ${subject} on ${topic}?`,
-        JSON.stringify(['Option A', 'Option B', 'Option C', 'Option D']),
-        'Option A'
-      );
+      const shuffled = [...questions].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, limit);
     }
-    await insertStmt.finalize();
+    return [];
   }
 
-  return db;
+  async get(query: string, params: any[] = []): Promise<any> {
+    if (query.includes('FROM papers')) {
+      const packageId = params[0];
+      return papers.find(p => p.packageId === packageId) || null;
+    }
+    return null;
+  }
+
+  async run(query: string, params: any[] = []): Promise<void> {
+    if (query.includes('INSERT INTO papers')) {
+      papers.push({
+        packageId: params[0],
+        versionId: params[1],
+        examName: params[2],
+        status: params[3],
+        createdAt: params[4],
+        aesKey: params[5],
+        iv: params[6],
+        encryptedPayload: params[7],
+      });
+    } else if (query.includes('UPDATE papers SET status')) {
+      const status = params[0];
+      const packageId = params[1];
+      const paper = papers.find(p => p.packageId === packageId);
+      if (paper) paper.status = status;
+    } else if (query.includes('INSERT INTO audit_logs')) {
+      auditLogs.push({
+        id: Date.now(),
+        timestamp: params[0],
+        event: params[1],
+        details: params[2]
+      });
+    }
+  }
+}
+
+export async function getDb() {
+  seedDb();
+  return new MockDB();
 }

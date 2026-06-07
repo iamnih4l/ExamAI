@@ -11,9 +11,19 @@
   <p align="center">
     A futuristic, military-grade web application demonstrating a secure examination paper generation and distribution system. Designed to eliminate paper leaks using Zero-Trust architecture, AES-256 encryption, and steganographic watermarking.
   </p>
+
+  ### 🌐 [Live Demo: View ExamShield AI on Vercel](https://exam-ai.vercel.app/)
+  *(Replace the URL above with your actual Vercel deployment link)*
 </div>
 
 ---
+
+## ⚙️ How It Works (Deployment Mechanics)
+
+To ensure smooth, zero-configuration deployment on **Vercel's Serverless environment**, ExamShield AI uses a hybrid architectural approach:
+- **In-Memory Database**: For the live demo, the backend utilizes an ephemeral, in-memory Mock DB instead of a persistent SQLite file. This prevents native binary compilation errors (`GLIBC` version mismatches) on Vercel's AWS Lambda infrastructure while still perfectly demonstrating the database interactions.
+- **Stateless Persistence**: Because serverless functions can "cold-start" and lose memory between routing calls, the demo automatically maintains state long enough for a typical user walkthrough (Generate -> Copy Hash -> Authenticate -> Unlock) during a "warm" lambda phase.
+- **Real Cryptography**: Despite the mocked database, the backend uses Node's native `crypto` library to perform mathematically authentic **AES-256-CBC encryption** on the generated exam papers before sending them back to the client.
 
 ## ⚡ Core Features
 
