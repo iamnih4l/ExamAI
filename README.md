@@ -12,8 +12,7 @@
     A futuristic, military-grade web application demonstrating a secure examination paper generation and distribution system. Designed to eliminate paper leaks using Zero-Trust architecture, AES-256 encryption, and steganographic watermarking.
   </p>
 
-  ### 🌐 [Live Demo: View ExamShield AI on Vercel](https://exam-ai.vercel.app/)
-  *(Replace the URL above with your actual Vercel deployment link)*
+  ### 🌐 [Live Demo: View ExamShield AI on Vercel](https://exam-ai-zeta-seven.vercel.app)
 </div>
 
 ---
